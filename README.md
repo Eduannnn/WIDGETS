@@ -194,8 +194,8 @@ To add a widget, create `MyWidget/shell.qml` inside this repository and restart 
 
 ## Contributing
 
-Keep changes focused on the affected widget. Run it locally, check the logs for QML errors, and include screenshots for visual changes. See [`AGENTS.md`](AGENTS.md) for the repository's contributor guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding guidelines, verification steps, and pull request expectations.
 
 ## AI disclosure
 
-AI was used to add comments to all files.
+This project was partly AI-assisted, alongside my own development and design work.
