@@ -29,7 +29,7 @@ ShellRoot {
         running: true
         // Resolve symlinks so edits to the original files are observed too.
         command: ["find", "-L", Quickshell.shellDir, "-mindepth", "2", "-maxdepth", "3",
-            "-type", "f", "(", "-name", "*.qml", "-o", "-name", "qmldir", ")",
+            "-type", "f", "(", "-name", "*.qml", "-o", "-name", "*.js", "-o", "-name", "qmldir", ")",
             "-exec", "readlink", "-f", "{}", ";"]
         stdout: SplitParser {
             onRead: path => {

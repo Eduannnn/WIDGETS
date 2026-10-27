@@ -17,6 +17,20 @@ ShellRoot {
     }
     SystemClock { id: clock; precision: SystemClock.Seconds }
 
+    readonly property string selectedDayKey: Qt.formatDate(
+        new Date(clock.date.getFullYear(), clock.date.getMonth(), clock.date.getDate() + debugDayOffset, 12),
+        "yyyy-MM-dd")
+    MoonPhaseProvider {
+        id: moonPhases
+        dates: {
+            const parts = root.selectedDayKey.split("-").map(Number);
+            const result = [];
+            for (let i = -6; i <= 6; i++)
+                result.push(new Date(parts[0], parts[1] - 1, parts[2] + i, 12));
+            return result;
+        }
+    }
+
     Variants {
         model: Quickshell.screens
         PanelWindow {
@@ -32,6 +46,7 @@ ShellRoot {
             CalendarView {
                 anchors.fill: parent
                 now: clock.date
+                moonPhaseSource: moonPhases
                 debugDayOffset: root.debugDayOffset
                 displayFont: {
                     const installed = Qt.fontFamilies();

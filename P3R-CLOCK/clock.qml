@@ -2,6 +2,8 @@
 // Run with: quickshell -p clock.qml
 
 import QtQuick
+import "."
+import "MoonPhase.js" as MoonPhase
 import Quickshell
 import Quickshell.Wayland
 
@@ -65,6 +67,12 @@ ShellRoot {
 
         // ---------- derived values ----------
         readonly property var now: clock.date
+
+        MoonPhaseProvider {
+            id: moonPhases
+            cacheName: "clock"
+            dates: [new Date(win.now.getFullYear(), win.now.getMonth(), win.now.getDate(), 12)]
+        }
         readonly property bool isWeekend: now.getDay() === 0 || now.getDay() === 6
 
         function pickFont(choices) {
@@ -87,13 +95,6 @@ ShellRoot {
             if (h >= 16 && h < 18)    return weekend ? "Late Afternoon" : "After School";
             if (h >= 18 && h < 22)    return "Evening";
             return "Late Night";
-        }
-
-        // One visual moon cycle per local day: new at midnight, full at noon.
-        // Use wall-clock time so the phase follows the displayed time across DST.
-        function moonPhase(d) {
-            const seconds = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
-            return seconds / 86400;
         }
 
         // ---------- the widget ----------
@@ -482,7 +483,8 @@ ShellRoot {
                 x: dayTriangle.x + dayTriangle.width + 24
                 y: win.topPad + (parent.height - win.topPad - height) / 2.5 + 10
 
-                property real phase: win.moonPhase(win.now)
+                property string phaseName: moonPhases.phaseName(new Date(win.now.getFullYear(), win.now.getMonth(), win.now.getDate(), 12))
+                property real phase: MoonPhase.phaseForName(phaseName)
                 onPhaseChanged: requestPaint()
                 property color moonColor: win.moonYellow
                 onMoonColorChanged: requestPaint()
@@ -493,10 +495,21 @@ ShellRoot {
 
                     const cx = width / 2, cy = height / 2;
                     const r = width / 2 - 7;
-                    const dark = "#0b0b1e";
+                    if (phase < 0) {
+                        ctx.strokeStyle = "#808080";
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                        ctx.stroke();
+                        return;
+                    }
+                    const dark = "#000000";
                     const lit = win.moonYellow;
                     const p = phase;
-                    const c = Math.cos(2 * Math.PI * p);
+                    // Clock-only presets leave wider crescents and shadows inside the glowing rim.
+                    // New, waxing crescent, first quarter, waxing gibbous, full, then waning.
+                    const curves = [1, 0.6, 0, -0.6, -1, -0.6, 0, 0.6];
+                    const c = curves[Math.round(p * 8)];
 
                     // Soft yellow halo, brightest at the thin rim.
                     const glow = ctx.createRadialGradient(cx, cy, r - 2, cx, cy, width / 2);
@@ -523,10 +536,12 @@ ShellRoot {
                     ctx.fill();
 
                     // terminator: dark ellipse over the lit half for crescents, lit for gibbous
-                    ctx.fillStyle = c > 0 ? dark : lit;
-                    ctx.beginPath();
-                    ctx.ellipse(cx - r * Math.abs(c), cy - r, 2 * r * Math.abs(c), 2 * r);
-                    ctx.fill();
+                    if (Math.abs(c) > 0.0001) {
+                        ctx.fillStyle = c > 0 ? dark : lit;
+                        ctx.beginPath();
+                        ctx.ellipse(cx - r * Math.abs(c), cy - r, 2 * r * Math.abs(c), 2 * r);
+                        ctx.fill();
+                    }
 
                     // A soft glow follows the curved boundary between light and dark.
                     const edgeGlow = Math.sqrt(Math.max(0, 1 - c * c));

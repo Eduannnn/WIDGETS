@@ -1,4 +1,5 @@
 import QtQuick
+import "MoonPhase.js" as MoonPhase
 
 Item {
     id: calendar
@@ -21,15 +22,23 @@ Item {
     property color moonColor: "#ffe500"
     readonly property real uiScale: Math.min(width / 1440, height / 900)
 
+    // The launcher shares one provider across screens; standalone previews use this one.
+    property var moonPhaseSource: localMoonPhases
+    MoonPhaseProvider {
+        id: localMoonPhases
+        dates: {
+            if (calendar.moonPhaseSource !== localMoonPhases) return [];
+            const result = [];
+            for (let i = -5; i <= 5; i++) result.push(calendar.dateForDay(calendar.baseDay + i));
+            return result;
+        }
+    }
+
     function dateForDay(serial) {
         const utc = new Date(serial * 86400000);
         return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate(), 12);
     }
     function dayAt(offset) { return dateForDay(targetDay + offset); }
-    // Same local-time cycle as the small clock: new at midnight, full at noon.
-    function dailyPhase(date) {
-        return (date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds()) / 86400;
-    }
 
     // Draw against the actual screen, not the letterboxed reference stage.
     Canvas {
@@ -147,14 +156,24 @@ Item {
                     property color markerColor: calendar.moonColor
                     onMarkerColorChanged: requestPaint()
                     onHighlightChanged: requestPaint()
-                    property real phase: highlight > 0 ? calendar.dailyPhase(calendar.now) : 0
+                    property string phaseName: calendar.moonPhaseSource.phaseName(day.date)
+                    property real phase: MoonPhase.phaseForName(phaseName)
                     onPhaseChanged: requestPaint()
                     onPaint: {
                         const ctx = getContext("2d");
                         ctx.reset();
                         const cx = width / 2, cy = height / 2;
                         const r = 25;
-                        // Morph one opaque disc instead of fading two drawings over it.
+                        // An outline means the API result is not available yet.
+                        if (phase < 0) {
+                            ctx.strokeStyle = "#808080";
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                            ctx.stroke();
+                            return;
+                        }
+                        // Highlight changes the color and surround, preserving each day's phase.
                         const amount = Math.max(0, Math.min(1, highlight));
                         const t = amount * amount * (3 - 2 * amount);
                         function mix(a, b) {
@@ -163,10 +182,10 @@ Item {
                                            a.b + (b.b - a.b) * t, 1);
                         }
                         const white = Qt.rgba(1, 1, 1, 1);
-                        const dark = mix(white, Qt.rgba(11 / 255, 11 / 255, 30 / 255, 1));
+                        const shade = (176 / 255) * (1 - t);
+                        const dark = Qt.rgba(shade, shade, shade, 1);
                         const lit = mix(white, markerColor);
-                        // Full white disc at rest; the terminator curves into the daily phase.
-                        const c = -1 + (1 + Math.cos(2 * Math.PI * phase)) * t;
+                        const c = Math.cos(2 * Math.PI * phase);
                         // One closed path keeps the glow on the illuminated phase only.
                         function litPath() {
                             const side = phase < 0.5 ? 1 : -1;
@@ -186,8 +205,8 @@ Item {
                         ctx.arc(cx + 2, cy + 2, r, 0, 2 * Math.PI);
                         ctx.fill();
 
-                        // The navy surround grows with the phase; its white ring stays fixed.
-                        ctx.fillStyle = mix(white, Qt.rgba(7 / 255, 55 / 255, 103 / 255, 1));
+                        // The navy surround grows with the highlight; its white ring stays fixed.
+                        ctx.fillStyle = Qt.rgba(7 / 255, 55 / 255, 103 / 255, 1);
                         ctx.beginPath();
                         ctx.arc(cx, cy, r + 7 * t, 0, 2 * Math.PI);
                         ctx.fill();

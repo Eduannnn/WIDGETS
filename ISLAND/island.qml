@@ -24,7 +24,8 @@ ShellRoot {
     property real   expandedWidth: 688 * uiScale
     property real   expandedHeight: 334 * uiScale
     property real   compactWidth: Math.max(notchWidth + 80, expandedWidth * 0.94)
-    property real   compactHeight: notchHeight + 62
+    property int    compactPadding: 14
+    property real   compactHeight: notchHeight + 40 + compactPadding
     property real   collapsedRadius: 15
     property real   expandedRadius: 70 * uiScale
     property real   earRadius: 16  // the concave corners where the island meets the top of the screen
@@ -242,7 +243,11 @@ ShellRoot {
     }
 
     Timer { id: collapseTimer; interval: root.collapseDelayMs; onTriggered: root.hoverLatch = false }
-    Timer { id: peekTimer;     interval: root.trackPeekMs;     onTriggered: root.peek = false }
+    Timer {
+        id: peekTimer
+        interval: Math.max(root.trackPeekMs, compactView.textReadMs)
+        onTriggered: root.peek = false
+    }
     Timer {
         id: lingerTimer
         interval: root.pausedLingerMs
@@ -398,6 +403,39 @@ ShellRoot {
             maskEnabled: true
             maskSource: mask
             visible: img.status === Image.Ready
+        }
+    }
+
+    // Shared small waveform for the collapsed and track-change views.
+    component MiniWaveform: Row {
+        id: miniWaveform
+        property bool active: false
+        height: 22
+        spacing: 3
+        Repeater {
+            model: root.barCount
+            Rectangle {
+                required property int index
+                id: barRect
+                anchors.verticalCenter: parent.verticalCenter
+                width: 3
+                height: currentHeight
+                radius: width / 2
+                color: tint.value
+                property real currentHeight: 5
+
+                Timer {
+                    interval: 16
+                    running: miniWaveform.active
+                    repeat: true
+                    onTriggered: {
+                        const rawLevel = root.levels[barRect.index] || 0;
+                        const targetVal = root.playing ? 5 + rawLevel * 17 : 5;
+                        const lerpFactor = targetVal > barRect.currentHeight ? 0.4 : 0.12;
+                        barRect.currentHeight += (targetVal - barRect.currentHeight) * lerpFactor;
+                    }
+                }
+            }
         }
     }
 
@@ -653,39 +691,11 @@ ShellRoot {
                         source: root.player ? root.player.trackArtUrl : ""
                     }
 
-                    Row {
+                    MiniWaveform {
                         anchors.right: parent.right
                         anchors.rightMargin: 14
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 3
-                        Repeater {
-                            model: root.barCount
-
-                            Rectangle {
-                                required property int index
-                                id: barRect
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 3
-                                radius: width / 2
-                                color: tint.value
-
-                                property real currentHeight: 5
-
-                                Timer {
-                                    interval: 16
-                                    running: collapsedView.visible
-                                    repeat: true
-                                    onTriggered: {
-                                        var rawLevel = root.levels[index] || 0.0;
-                                        var targetVal = root.playing ? (5 + rawLevel * 17) : 5;
-                                        var lerpFactor = targetVal > barRect.currentHeight ? 0.4 : 0.12;
-                                        barRect.currentHeight += (targetVal - barRect.currentHeight) * lerpFactor;
-                                    }
-                                }
-
-                                height: currentHeight
-                            }
-                        }
+                        active: collapsedView.visible
                     }
                 }
 
@@ -700,9 +710,16 @@ ShellRoot {
                     enabled: root.compact
                     Behavior on opacity { NumberAnimation { duration: 160 } }
 
+                    // Leave time to read both ends of any overflowing metadata.
+                    readonly property real textReadMs: Math.max(
+                        compactTitle.overflow > 0 ? compactTitle.scrollDuration + 2 * compactTitle.readPauseMs : 0,
+                        compactArtist.overflow > 0 ? compactArtist.scrollDuration + 2 * compactArtist.readPauseMs : 0)
+
                     CoverArt {
-                        x: 20
-                        y: root.notchHeight + 8
+                        id: compactArt
+                        x: root.compactPadding
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: root.compactPadding
                         width: 40
                         height: 40
                         radius: 11
@@ -710,9 +727,9 @@ ShellRoot {
                     }
                     RibbonText {
                         id: compactTitle
-                        x: 74
-                        y: root.notchHeight + 10
-                        width: parent.width - x - 22
+                        x: compactArt.x + compactArt.width + root.compactPadding
+                        y: compactArt.y + 2
+                        width: Math.max(0, compactWaveform.x - x - root.compactPadding)
                         text: root.player ? (root.player.trackTitle || root.player.identity) : ""
                         fontFamily: root.fontFamily
                         pixelSize: 14
@@ -720,8 +737,9 @@ ShellRoot {
                         resetKey: root.trackKey
                     }
                     RibbonText {
+                        id: compactArtist
                         x: compactTitle.x
-                        y: root.notchHeight + 31
+                        y: compactArt.y + 23
                         width: compactTitle.width
                         text: root.player ? (root.player.trackArtist || root.player.trackAlbum || root.player.identity) : ""
                         fontFamily: root.fontFamily
@@ -731,6 +749,13 @@ ShellRoot {
                         pixelsPerSecond: 24
                         active: root.compact
                         resetKey: root.trackKey
+                    }
+                    MiniWaveform {
+                        id: compactWaveform
+                        anchors.right: parent.right
+                        anchors.rightMargin: root.compactPadding
+                        y: compactArt.y + compactArt.height / 2 - height / 2
+                        active: compactView.visible
                     }
                 }
 

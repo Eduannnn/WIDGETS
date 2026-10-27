@@ -7,14 +7,15 @@ A collection of Qt Quick/QML desktop widgets for Linux and Wayland, featuring Pe
 | Widget | Description | Main source |
 | --- | --- | --- |
 | **P3R Clock** | Top-right clock with a hover-to-show date, weekday/weekend banner, animated waves, time-of-day label, and glowing moon glyph. | [`P3R-CLOCK/clock.qml`](P3R-CLOCK/clock.qml) |
-| **Calendar** | Transparent, click-through desktop timeline on every screen, with an animated date transition and highlighted moon glyph for the active day. | [`CALENDAR/CalendarView.qml`](CALENDAR/CalendarView.qml) |
+| **Calendar** | Transparent, click-through desktop timeline on every screen, with an animated date transition, astronomical moon phases for each date, and a glowing active-day marker. | [`CALENDAR/CalendarView.qml`](CALENDAR/CalendarView.qml) |
 | **CAVA** | Full-width audio visualizer along the bottom of the screen, with configurable colors and a fade when audio goes silent. | [`CAVA/cava.qml`](CAVA/cava.qml) |
 | **Island** | Notch-style media widget with album artwork, track information, playback controls, seeking, and an audio visualization. | [`ISLAND/island.qml`](ISLAND/island.qml) |
 
-The moon glyphs follow a **visual cycle over each local day**: new at midnight and full at noon. They do not represent astronomical moon phases.
+The calendar and clock use phase names returned by the [U.S. Naval Observatory API](https://aa.usno.navy.mil/data/api.html), mapping names such as `Full Moon` and `Waning Gibbous` directly to fixed glyph presets. The calendar requests each displayed date, including past and future dates, and the clock requests today. Results are cached across restarts; uncached dates need an internet connection. While a result is unavailable, an outline is shown. The API supports dates from 1700 through 2100. The unlit portion is black on the clock and the calendar's active day, and light gray on other calendar dates.
 
 ## Requirements
 
+- An internet connection to fetch uncached moon-phase dates (no API key required).
 - A Linux Wayland session with a compositor supporting the layer-shell protocol.
 - **Quickshell**, including its Qt Quick, Wayland, I/O, and MPRIS modules and Qt Quick Effects support.
 - **CAVA**, installed as `cava` on your `PATH`, for the bottom visualizer and Island's audio bars.
