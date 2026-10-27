@@ -32,7 +32,7 @@ Install Quickshell and CAVA using your distribution's package manager or their u
 Clone the repository and run the installer as your normal desktop user, **without sudo**:
 
 ```sh
-git clone https://github.com/ForSaleDev/WIDGETS.git
+git clone https://github.com/Eduannnn/WIDGETS.git
 cd WIDGETS
 ./install.sh
 ```
