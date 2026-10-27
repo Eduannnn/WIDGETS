@@ -28,43 +28,91 @@ The clock and calendar look for Impact, Anton, Bebas Neue, Oswald, Archivo Black
 
 Install Quickshell and CAVA using your distribution's package manager or their upstream installation instructions. No compilation or additional build step is needed for these QML files.
 
-Clone the repository into your Quickshell configuration directory:
+Clone the repository and run the installer as your normal desktop user, **without sudo**:
 
 ```sh
-mkdir -p ~/.config/quickshell
-git clone https://github.com/ForSaleDev/WIDGETS.git ~/.config/quickshell/WIDGETS
+git clone https://github.com/ForSaleDev/WIDGETS.git
+cd WIDGETS
+./install.sh
 ```
 
-Start all widgets:
+The installer:
+
+1. Checks that Quickshell, CAVA, and the systemd user manager are available.
+2. Copies the project to `~/.config/quickshell/p3r/`, preserving widget entry-point symlinks and excluding Git and local agent metadata.
+3. Creates `p3r-widgets.service` in `${XDG_CONFIG_HOME:-~/.config}/systemd/user/` with the absolute Quickshell executable and your current `PATH`.
+4. Imports available desktop display variables, runs `systemctl --user daemon-reload`, and enables the service for `graphical-session.target`.
+
+The installer enables the service without starting it. Stop any existing widget instances, then start it:
 
 ```sh
-quickshell --no-duplicate -p ~/.config/quickshell/WIDGETS
+systemctl --user start p3r-widgets.service
 ```
 
-Keep the terminal open while checking the initial setup; widget loading errors appear in the output.
-
-### Run a single widget
-
-From the repository directory:
+Automatic startup requires your desktop or compositor to activate `graphical-session.target` and provide its Wayland environment to the systemd user manager. For sessions without that integration, add these commands to the compositor's startup configuration:
 
 ```sh
+systemctl --user import-environment WAYLAND_DISPLAY
+systemctl --user start p3r-widgets.service
+```
+
+### Service management
+
+```sh
+systemctl --user status p3r-widgets.service  # Check status
+journalctl --user -u p3r-widgets.service -f # Follow logs
+systemctl --user restart p3r-widgets.service
+systemctl --user stop p3r-widgets.service
+systemctl --user disable --now p3r-widgets.service
+```
+
+Disable previous individual widget services or compositor autostart entries before switching to this service. `--no-duplicate` prevents another instance of the same configuration; it does not stop widgets launched from a different path.
+
+### Run manually or preview one widget
+
+To run all installed widgets in a terminal instead of using the service:
+
+```sh
+quickshell --no-duplicate -p ~/.config/quickshell/p3r
+```
+
+To preview one widget, stop the service and run the corresponding command from the installed directory:
+
+```sh
+systemctl --user stop p3r-widgets.service
+cd ~/.config/quickshell/p3r
 quickshell -p P3R-CLOCK/clock.qml
 quickshell -p CALENDAR
 quickshell -p CAVA/cava.qml
 quickshell -p ISLAND/island.qml
 ```
 
-Run only the command for the widget you want. Stop the combined launcher before launching the same widgets separately to avoid overlapping instances.
+Run only the command for the widget you want. The same preview commands also work from the repository directory.
 
-### Start automatically
+### Updating and removing
 
-Add the combined launch command to your compositor's startup configuration or your desktop's autostart setup. Use absolute paths if your startup mechanism does not expand `~` or resolve `quickshell` through `PATH`.
+To update, run these commands from your cloned repository:
 
-If replacing individual widget services, disable those services first. `--no-duplicate` prevents another instance of this combined configuration; it does not stop widgets started separately.
+```sh
+git pull
+./install.sh
+systemctl --user restart p3r-widgets.service
+```
+
+Reinstalling overwrites matching files in the installed copy, including local QML edits. Back up customizations first. Files removed upstream are not automatically deleted from the installed copy.
+
+To remove the installation:
+
+```sh
+systemctl --user disable --now p3r-widgets.service
+rm -- "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/p3r-widgets.service"
+systemctl --user daemon-reload
+rm -r -- "$HOME/.config/quickshell/p3r"
+```
 
 ## Widget configuration
 
-Settings are QML properties inside each widget's source file. Edit the values directly and save. The combined launcher watches QML sources and helper files and reloads automatically after a short delay. Restart it after adding or disabling widgets.
+Settings are QML properties inside each widget's source file. For the service installation, edit the files under `~/.config/quickshell/p3r/`; the repository links below identify the corresponding source files. Edit the values directly and save. The combined launcher watches QML sources and helper files and reloads automatically after a short delay. Restart it after adding or disabling widgets.
 
 ### P3R Clock
 
@@ -114,16 +162,20 @@ Both audio widgets generate their CAVA configuration at runtime; there is no sep
 
 The root [`shell.qml`](shell.qml) loads every immediate subdirectory containing a `shell.qml` entry point. Helper components are not launched independently, and a widget loading error is logged without preventing the others from loading.
 
-To disable a widget without deleting its source, rename its entry point and restart the launcher:
+To disable a widget without deleting its source, rename its entry point in the installed directory and restart the service:
 
 ```sh
+cd ~/.config/quickshell/p3r
 mv CAVA/shell.qml CAVA/shell.qml.disabled
+systemctl --user restart p3r-widgets.service
 ```
 
 To enable it again:
 
 ```sh
+cd ~/.config/quickshell/p3r
 mv CAVA/shell.qml.disabled CAVA/shell.qml
+systemctl --user restart p3r-widgets.service
 ```
 
 Some entry points are relative symlinks to the widget's main QML file. Preserve those links and their targets when moving or copying files.

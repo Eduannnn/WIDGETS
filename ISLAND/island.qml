@@ -27,7 +27,7 @@ ShellRoot {
     property real   compactHeight: notchHeight + 62
     property real   collapsedRadius: 15
     property real   expandedRadius: 70 * uiScale
-    property real   earRadius: 30 * uiScale  // the little concave "ears" where the open island meets the top of the screen
+    property real   earRadius: 16  // the concave corners where the island meets the top of the screen
     property color  accent: "#49fffe"        // Persona cyan accent (used when the cover has no usable colour)
     property bool   tintFromCover: true      // progress bar + waveform take the cover art's main colour
     property color  dim: "#9aa0b4"           // Secondary text
@@ -554,8 +554,8 @@ ShellRoot {
                  : (root.shown ? root.notchWidth + 2 * root.wingWidth : root.notchWidth)
             height: root.expanded ? root.expandedHeight : root.compact ? root.compactHeight : root.notchHeight
 
-            // size of the top "ears"; they grow in when the island opens
-            property real ear: root.expanded ? root.earRadius : root.compact ? 8 : 0
+            // Use a subtler screen join while collapsed.
+            property real ear: root.expanded ? root.earRadius : root.compact ? 8 : 6
             Behavior on ear { NumberAnimation { duration: root.animMs; easing.type: Easing.OutCubic } }
 
             Behavior on width  { NumberAnimation { duration: root.animMs; easing.type: Easing.OutCubic } }
@@ -578,7 +578,7 @@ ShellRoot {
             }
 
             // left ear: a black corner piece with a quarter circle cut out, so the sides of the
-            // open island flare outward into the top edge of the screen
+            // island flare outward into the top edge of the screen
             Canvas {
                 visible: island.ear > 0.5
                 width: island.ear + 1
